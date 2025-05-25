@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MultiAgent DP</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="icon" type="image/x-icon" href="/static/assets/icons/favicon.ico">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/assets/icons/favicon-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/assets/icons/favicon-32x32.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/assets/icons/apple-touch-icon.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
+    <div class="bg-white bg-opacity-90 p-8 rounded-2xl shadow-2xl w-full max-w-lg backdrop-blur-md">
+        <h1 class="text-3xl font-bold mb-6 text-center text-gray-800">Text Input Interface</h1>
+        <div class="mb-6">
+            <input type="text" id="textInput" class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all" placeholder="Enter your text...">
+        </div>
+        <button onclick="sendText()" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-3 rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all duration-300 transform hover:scale-105">Send</button>
+        <p id="response" class="mt-6 text-center text-gray-600">...</p>
+    </div>
+    <script src="/static/js/api.js"></script>
+</body>
+</html>
