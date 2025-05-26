@@ -1,17 +1,24 @@
-from fastapi import FastAPI, Depends, Query, Request
+import os
+from fastapi import FastAPI, Depends, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-from typing import List
+
 from backend.api.routes.text import router as text_router
-from backend.core.managers.agent_manager import AgentManager, get_agent_manager
+from backend.api.routes.agents import router as agent_router
+from backend.api.routes.tasks import router as task_router
+from backend.api.routes.chats import router as chat_router
 from backend.utils.logging import setup_logging
 from backend.config.database import SessionLocal
 from backend.core.managers.user_manager import UserManager
 
 
-templates = Jinja2Templates(directory="frontend/components")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+templates = Jinja2Templates(directory=os.path.join(current_dir, "..", "frontend", "components"))
 
 
 def get_db():
@@ -29,45 +36,16 @@ def get_user_manager(db: Session = Depends(get_db)) -> UserManager:
 setup_logging()
 app = FastAPI()
 
+app.include_router(text_router, prefix="/api/v1")
+app.include_router(agent_router, prefix="/api/v1")
+app.include_router(task_router, prefix="/api/v1")
+app.include_router(chat_router, prefix="/api/v1")
 
-app.include_router(text_router, prefix="/api")
-app.mount("/static", StaticFiles(directory="frontend"), name="static")
+current_dir = os.path.dirname(os.path.abspath(__file__))
+static_dir = os.path.join(current_dir, "..", "frontend", "static")
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 
 @app.get("/", response_class=HTMLResponse)
 async def get_root(request: Request):
-    return templates.TemplateResponse("text-input.html", {"request": request})
-
-
-@app.get("/all_users", response_model=List[dict])
-async def get_all_users(
-        limit: int = Query(100, ge=1, le=1000, description="Number of users to return"),
-        offset: int = Query(0, ge=0, description="Number of users to miss"),
-        user_manager: UserManager = Depends(get_user_manager)
-):
-    users = user_manager.get_all_users(limit=limit, offset=offset)
-    return [
-        {
-            "id": str(user.id),
-            "email": user.email,
-            "created_at": user.created_at.isoformat() if user.created_at else None
-        }
-        for user in users
-    ]
-
-
-@app.get("/all_agents", response_model=List[dict])
-async def get_all_users(
-        limit: int = Query(100, ge=1, le=1000, description="Number of agents to return"),
-        offset: int = Query(0, ge=0, description="Number of agents to miss"),
-        agent_manager: AgentManager = Depends(get_agent_manager)
-):
-    agents = agent_manager.get_all_agents(limit=limit, offset=offset)
-    return [
-        {
-            "id": str(agent.id),
-            "name": agent.name,
-            "system_prompt": agent.system_prompt if agent.system_prompt else None
-        }
-        for agent in agents
-    ]
+    return templates.TemplateResponse("main.html", {"request": request})

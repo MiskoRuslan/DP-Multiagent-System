@@ -14,7 +14,7 @@ templates = Jinja2Templates(directory="frontend/components")
 
 @router.get("/", response_class=HTMLResponse)
 async def get_interface(request: Request):
-    return templates.TemplateResponse("text-input.html", {"request": request})
+    return templates.TemplateResponse("main.html", {"request": request})
 
 
 @router.post("/text")
