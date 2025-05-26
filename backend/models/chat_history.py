@@ -19,6 +19,7 @@ class ChatHistory(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     agent_id = Column(UUID(as_uuid=True), ForeignKey("agents.id"), nullable=True)
     message_type = Column(Enum(MessageType), nullable=False)
+    sender = Column(String, nullable=True)  # USER \ AGENT
     message_text = Column(String, nullable=True)
     message_image = Column(String, nullable=True)
     was_sent = Column(DateTime, default=datetime.utcnow)
