@@ -27,6 +27,7 @@ class ChatMessageResponse(BaseModel):
     message_text: Optional[str]
     message_image: Optional[str]
     was_sent: datetime
+    sender: str
 
     class Config:
         orm_mode = True

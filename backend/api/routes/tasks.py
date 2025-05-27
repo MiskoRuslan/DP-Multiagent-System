@@ -1,18 +1,30 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 import base64
 from crewai import Agent, Task, Crew, Process
 from crewai.tools import BaseTool
 from langchain_openai import ChatOpenAI
 import asyncio
+from sqlalchemy.orm import Session
+
+from backend.config.database import SessionLocal
+from backend.models.chat_history import ChatHistory, MessageType as DBMessageType
 
 router = APIRouter()
 
 # Ініціалізація LLM (потрібно встановити OPENAI_API_KEY в змінних середовища)
 llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.7)
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 class MessageType(str, Enum):
@@ -104,7 +116,7 @@ async def process_with_crewai(message: str, user_id: str, agent_id: str) -> str:
 
 
 @router.post("/send", response_model=ChatMessageResponse)
-async def base_send(chat_message: ChatMessage):
+async def base_send(chat_message: ChatMessage, db: Session = Depends(get_db)):
     print("Received message:")
     print(f"Message Type: {chat_message.message_type}")
     print(f"Text: {chat_message.text}")
@@ -122,6 +134,24 @@ async def base_send(chat_message: ChatMessage):
 
     ai_response = None
 
+    # Зберегти повідомлення користувача в базу даних
+    try:
+        user_message_db = ChatHistory(
+            user_id=chat_message.user_id,
+            agent_id=chat_message.agent_id,
+            message_type=DBMessageType.TEXT if chat_message.message_type == MessageType.TEXT else DBMessageType.IMAGE,
+            sender="USER",
+            message_text=chat_message.text,
+            message_image=chat_message.image,
+            was_sent=chat_message.was_sent + timedelta(hours=3)
+        )
+        db.add(user_message_db)
+        db.commit()
+        print("Повідомлення користувача збережено в БД")
+    except Exception as e:
+        print(f"Помилка збереження повідомлення користувача: {str(e)}")
+        db.rollback()
+
     # Обробка текстового повідомлення за допомогою CrewAI
     if chat_message.message_type == MessageType.TEXT and chat_message.text:
         try:
@@ -131,6 +161,25 @@ async def base_send(chat_message: ChatMessage):
                 chat_message.agent_id
             )
             print(f"AI Response: {ai_response}")
+
+            # Зберегти відповідь агента в базу даних
+            try:
+                agent_message_db = ChatHistory(
+                    user_id=chat_message.user_id,
+                    agent_id=chat_message.agent_id,
+                    message_type=DBMessageType.TEXT,
+                    sender="AGENT",
+                    message_text=ai_response,
+                    message_image=None,
+                    was_sent=datetime.now() + timedelta(hours=3)
+                )
+                db.add(agent_message_db)
+                db.commit()
+                print("Відповідь агента збережена в БД")
+            except Exception as e:
+                print(f"Помилка збереження відповіді агента: {str(e)}")
+                db.rollback()
+
         except Exception as e:
             print(f"Error generating AI response: {str(e)}")
             ai_response = "Вибачте, не вдалося згенерувати відповідь на ваше повідомлення."
@@ -138,6 +187,23 @@ async def base_send(chat_message: ChatMessage):
     # Обробка зображень (поки що тільки логування)
     elif chat_message.message_type == MessageType.IMAGE:
         ai_response = "Отримано зображення. Обробка зображень буде додана в майбутніх версіях."
+
+        # Зберегти відповідь про зображення в базу даних
+        try:
+            agent_message_db = ChatHistory(
+                user_id=chat_message.user_id,
+                agent_id=chat_message.agent_id,
+                message_type=DBMessageType.TEXT,
+                sender="AGENT",
+                message_text=ai_response,
+                message_image=None,
+                was_sent=datetime.utcnow()
+            )
+            db.add(agent_message_db)
+            db.commit()
+        except Exception as e:
+            print(f"Помилка збереження відповіді про зображення: {str(e)}")
+            db.rollback()
 
     response = ChatMessageResponse(
         message_type=str(chat_message.message_type),

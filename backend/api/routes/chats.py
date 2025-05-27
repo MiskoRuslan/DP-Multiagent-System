@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from typing import List
 from backend.core.managers.chat_manager import ChatManager, get_chat_manager
-from backend.schemas.chat import ChatMessageCreate, ChatMessageResponse, ChatQuery
+from backend.schemas.chat import ChatMessageCreate, ChatMessageResponse
 
 router = APIRouter()
 

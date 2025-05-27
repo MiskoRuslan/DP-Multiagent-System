@@ -152,33 +152,87 @@ async function loadChatHistory() {
 }
 
 // Відобразити повідомлення в чаті
+// Відобразити повідомлення в чаті
 function displayMessage(message) {
     const chatMessages = document.getElementById('chatMessages');
     const messageDiv = document.createElement('div');
-    messageDiv.className = 'mb-3 p-2 rounded';
+    messageDiv.className = 'mb-3 p-3 rounded-lg';
 
-    const isFromUser = message.user_id === currentUserId;
-    const sender = isFromUser ? 'Ви' : (currentAgent ? currentAgent.name : 'Агент');
+    // ВИПРАВЛЕНА ЛОГІКА: спочатку перевіряємо поле sender з бази даних
+    let sender = '';
+    let isFromUser = false;
+    let isFromAgent = false;
 
-    if (isFromUser) {
-        messageDiv.classList.add('bg-blue-100', 'ml-8');
+    // Перевіряємо sender з бази даних (це найнадійніший спосіб)
+    if (message.sender === 'USER') {
+        isFromUser = true;
+        sender = 'Ви';
+    } else if (message.sender === 'AGENT') {
+        isFromAgent = true;
+        sender = currentAgent ? currentAgent.name : 'Агент';
+    }
+    // Резервна логіка для випадків коли sender відсутній (тільки для нових повідомлень)
+    else if (message.user_id === currentUserId) {
+        isFromUser = true;
+        sender = 'Ви';
+    } else if (message.user_id === 'agent_response') {
+        isFromAgent = true;
+        sender = currentAgent ? currentAgent.name : 'Агент';
     } else {
-        messageDiv.classList.add('bg-gray-100', 'mr-8');
+        // Для випадків коли не можемо точно визначити відправника
+        messageDiv.classList.add('bg-yellow-50', 'border-l-4', 'border-yellow-400');
+        sender = 'Невідомо';
+        console.warn('Не вдалося визначити відправника повідомлення:', message);
+    }
+
+    // Застосовуємо стилі на основі відправника
+    if (isFromUser) {
+        messageDiv.classList.add('bg-blue-100', 'ml-8', 'border-l-4', 'border-blue-500');
+    } else if (isFromAgent) {
+        messageDiv.classList.add('bg-gray-100', 'mr-8', 'border-l-4', 'border-gray-500');
     }
 
     let content = '';
-    if (message.message_type === 'TEXT' && message.message_text) {
+
+    // Спочатку перевіряємо message_text (з бази даних)
+    if (message.message_text) {
         content = message.message_text;
-    } else if (message.message_type === 'IMAGE' && message.message_image) {
-        content = `<img src="data:image/jpeg;base64,${message.message_image}" alt="Зображення" class="max-w-xs rounded">`; // Змінено з message.image на message.message_image
+    }
+    // Потім перевіряємо text (з API)
+    else if (message.text) {
+        content = message.text;
+    }
+    // Для зображень
+    else if (message.message_type === 'IMAGE' && (message.message_image || message.image)) {
+        const imageData = message.message_image || message.image;
+        content = `<img src="data:image/jpeg;base64,${imageData}" alt="Зображення" class="max-w-xs rounded shadow-md">`;
+    }
+    // Якщо це AI відповідь
+    else if (message.ai_response) {
+        content = message.ai_response;
+    }
+    else {
+        content = '<em class="text-gray-500">Порожнє повідомлення</em>';
     }
 
-    const timestamp = new Date(message.was_sent).toLocaleString('uk-UA');
+    // Форматування часу
+    let timestamp = '';
+    if (message.was_sent) {
+        timestamp = new Date(message.was_sent).toLocaleString('uk-UA', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
 
     messageDiv.innerHTML = `
-        <div class="font-semibold text-sm ${isFromUser ? 'text-blue-700' : 'text-gray-700'}">${sender}</div>
-        <div class="mt-1">${content}</div>
-        <div class="text-xs text-gray-500 mt-1">${timestamp}</div>
+        <div class="flex justify-between items-center mb-2">
+            <div class="font-semibold text-sm ${isFromUser ? 'text-blue-700' : isFromAgent ? 'text-gray-700' : 'text-yellow-700'}">${sender}</div>
+            <div class="text-xs text-gray-400">${timestamp}</div>
+        </div>
+        <div class="text-gray-800 leading-relaxed">${content}</div>
     `;
 
     chatMessages.appendChild(messageDiv);
@@ -207,8 +261,27 @@ async function sendMessage() {
     };
 
     // Показати повідомлення користувача одразу
-    displayMessage(chatMessage);
+    const userMessage = { ...chatMessage, sender: 'USER' };
+    displayMessage(userMessage);
     input.value = '';
+    scrollChatToBottom();
+
+    // Показати індикатор набору для агента
+    const typingDiv = document.createElement('div');
+    typingDiv.className = 'mb-3 p-3 rounded-lg bg-gray-50 mr-8 border-l-4 border-gray-300';
+    typingDiv.id = 'typing-indicator';
+    typingDiv.innerHTML = `
+        <div class="flex items-center space-x-2">
+            <div class="font-semibold text-sm text-gray-600">${currentAgent.name}</div>
+            <div class="flex space-x-1">
+                <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.1s;"></div>
+                <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s;"></div>
+            </div>
+        </div>
+        <div class="text-gray-500 text-sm mt-1">Набирає відповідь...</div>
+    `;
+    document.getElementById('chatMessages').appendChild(typingDiv);
     scrollChatToBottom();
 
     try {
@@ -221,42 +294,54 @@ async function sendMessage() {
             body: JSON.stringify(chatMessage)
         });
 
+        // Видалити індикатор набору
+        const typingIndicator = document.getElementById('typing-indicator');
+        if (typingIndicator) {
+            typingIndicator.remove();
+        }
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
         const responseData = await response.json();
+        console.log('Відповідь сервера:', responseData);
 
         // Відобразити відповідь агента
-        if (responseData && typeof responseData === 'string') {
-            // Якщо сервер повертає просто рядок
+        if (responseData && responseData.ai_response) {
             const agentResponse = {
                 message_type: 'TEXT',
-                text: responseData,
-                image: null,
+                text: responseData.ai_response,
                 was_sent: new Date().toISOString(),
                 agent_id: currentAgent.id,
-                user_id: 'agent_response'
+                user_id: 'agent_response',
+                sender: 'AGENT'
             };
             displayMessage(agentResponse);
-        } else if (responseData && responseData.text) {
-            // Якщо сервер повертає об'єкт ChatMessageResponse
-            const agentResponse = {
-                ...responseData,
-                user_id: 'agent_response'
-            };
-            displayMessage(agentResponse);
+        } else {
+            console.warn('Немає AI відповіді в responseData:', responseData);
         }
 
         scrollChatToBottom();
     } catch (error) {
         console.error('Помилка відправки повідомлення:', error);
 
+        // Видалити індикатор набору в разі помилки
+        const typingIndicator = document.getElementById('typing-indicator');
+        if (typingIndicator) {
+            typingIndicator.remove();
+        }
+
         // Показати повідомлення про помилку
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'text-red-500 text-center p-2';
-        errorDiv.textContent = 'Помилка відправки повідомлення. Спробуйте ще раз.';
-        document.getElementById('chatMessages').appendChild(errorDiv);
+        const errorMessage = {
+            message_type: 'TEXT',
+            text: `❌ Помилка відправки повідомлення: ${error.message}`,
+            was_sent: new Date().toISOString(),
+            agent_id: 'system',
+            user_id: 'system',
+            sender: 'SYSTEM'
+        };
+        displayMessage(errorMessage);
         scrollChatToBottom();
     }
 }
@@ -273,15 +358,21 @@ window.addEventListener('DOMContentLoaded', () => {
     loadAgents();
 
     // Обробники подій для відправки повідомлень
-    document.getElementById('chatInput').addEventListener('keypress', function (e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            sendMessage();
-        }
-    });
+    const chatInput = document.getElementById('chatInput');
+    if (chatInput) {
+        chatInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
 
-    document.getElementById('sendButton')?.addEventListener('click', sendMessage);
+        // Фокус на поле введення
+        chatInput.focus();
+    }
 
-    // Фокус на поле введення
-    document.getElementById('chatInput').focus();
+    const sendButton = document.getElementById('sendButton');
+    if (sendButton) {
+        sendButton.addEventListener('click', sendMessage);
+    }
 });
