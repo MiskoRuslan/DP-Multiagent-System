@@ -1,22 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime, timedelta
 from enum import Enum
 import base64
 from crewai import Agent, Task, Crew, Process
-from crewai.tools import BaseTool
 from langchain_openai import ChatOpenAI
 import asyncio
 from sqlalchemy.orm import Session
 
 from backend.config.database import SessionLocal
+from backend.core.managers.chat_manager import ChatManager, get_chat_manager
 from backend.models.chat_history import ChatHistory, MessageType as DBMessageType
 
 router = APIRouter()
 
-# Ініціалізація LLM (потрібно встановити OPENAI_API_KEY в змінних середовища)
-llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.7)
+llm = ChatOpenAI(model="gpt-4o", temperature=0.7)
 
 
 def get_db():
@@ -56,7 +55,6 @@ class ChatMessageResponse(BaseModel):
     ai_response: Optional[str] = None
 
 
-# CrewAI Agent для обробки повідомлень
 def create_chat_agent():
     return Agent(
         role='Chat Assistant',
@@ -89,14 +87,12 @@ def create_chat_task(user_message: str, user_id: str, agent_id: str):
 
 async def process_with_crewai(message: str, user_id: str, agent_id: str) -> str:
     """
-    Асинхронна обробка повідомлення за допомогою CrewAI
+    Asynchronous Message Treatment with Crewai
     """
     try:
-        # Створення агента та задачі
         agent = create_chat_agent()
         task = create_chat_task(message, user_id, agent_id)
 
-        # Створення команди
         crew = Crew(
             agents=[agent],
             tasks=[task],
@@ -104,7 +100,6 @@ async def process_with_crewai(message: str, user_id: str, agent_id: str) -> str:
             verbose=True
         )
 
-        # Виконання задачі в окремому потоці для уникнення блокування
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(None, crew.kickoff)
 
@@ -116,7 +111,11 @@ async def process_with_crewai(message: str, user_id: str, agent_id: str) -> str:
 
 
 @router.post("/send", response_model=ChatMessageResponse)
-async def base_send(chat_message: ChatMessage, db: Session = Depends(get_db)):
+async def base_send(
+        chat_message: ChatMessage,
+        db: Session = Depends(get_db),
+        chat_manager: ChatManager = Depends(get_chat_manager),
+):
     print("Received message:")
     print(f"Message Type: {chat_message.message_type}")
     print(f"Text: {chat_message.text}")
@@ -134,12 +133,13 @@ async def base_send(chat_message: ChatMessage, db: Session = Depends(get_db)):
 
     ai_response = None
 
-    # Зберегти повідомлення користувача в базу даних
     try:
         user_message_db = ChatHistory(
             user_id=chat_message.user_id,
             agent_id=chat_message.agent_id,
-            message_type=DBMessageType.TEXT if chat_message.message_type == MessageType.TEXT else DBMessageType.IMAGE,
+            message_type=DBMessageType.TEXT
+            if chat_message.message_type == MessageType.TEXT
+            else DBMessageType.IMAGE,
             sender="USER",
             message_text=chat_message.text,
             message_image=chat_message.image,
@@ -152,17 +152,34 @@ async def base_send(chat_message: ChatMessage, db: Session = Depends(get_db)):
         print(f"Помилка збереження повідомлення користувача: {str(e)}")
         db.rollback()
 
-    # Обробка текстового повідомлення за допомогою CrewAI
     if chat_message.message_type == MessageType.TEXT and chat_message.text:
+
+        start_memory_prompt = ("THIS IS A SYSTEM PROMPT. PAST MESSAGE "
+                               "HISTORY WILL NOW BE TRANSMITTED TO GIVE YOU CONTEXT:")
+
+        end_memory_prompt = "PAST MESSAGE HISTORY COMPLETED"
+
+        previous_messages = chat_manager.get_chat_by_user_and_agent(
+            user_id=chat_message.user_id,
+            agent_id=chat_message.agent_id
+        )
+
+        message_to_llm = ""
+        message_to_llm += start_memory_prompt
+        for previous_message in previous_messages:
+            message_to_llm += "\n"
+            message_to_llm += f"Sender: {previous_message.sender}\n"
+            message_to_llm += f"Message: {previous_message.message_text}\n"
+        message_to_llm += end_memory_prompt
+
         try:
             ai_response = await process_with_crewai(
-                chat_message.text,
+                message_to_llm,
                 chat_message.user_id,
                 chat_message.agent_id
             )
             print(f"AI Response: {ai_response}")
 
-            # Зберегти відповідь агента в базу даних
             try:
                 agent_message_db = ChatHistory(
                     user_id=chat_message.user_id,
@@ -170,25 +187,23 @@ async def base_send(chat_message: ChatMessage, db: Session = Depends(get_db)):
                     message_type=DBMessageType.TEXT,
                     sender="AGENT",
                     message_text=ai_response,
-                    message_image=None,
                     was_sent=datetime.now() + timedelta(hours=3)
                 )
                 db.add(agent_message_db)
                 db.commit()
-                print("Відповідь агента збережена в БД")
+                print("The agent's response is saved in the database")
             except Exception as e:
-                print(f"Помилка збереження відповіді агента: {str(e)}")
+                print(f"Failed to Save Agent Answer: {str(e)}")
                 db.rollback()
 
         except Exception as e:
             print(f"Error generating AI response: {str(e)}")
-            ai_response = "Вибачте, не вдалося згенерувати відповідь на ваше повідомлення."
+            ai_response = "Sorry, failed to generate the answer to your message."
 
-    # Обробка зображень (поки що тільки логування)
     elif chat_message.message_type == MessageType.IMAGE:
-        ai_response = "Отримано зображення. Обробка зображень буде додана в майбутніх версіях."
+        ai_response = ("Image received. Image processing "
+                       "will be added in future versions.")
 
-        # Зберегти відповідь про зображення в базу даних
         try:
             agent_message_db = ChatHistory(
                 user_id=chat_message.user_id,
@@ -196,7 +211,6 @@ async def base_send(chat_message: ChatMessage, db: Session = Depends(get_db)):
                 message_type=DBMessageType.TEXT,
                 sender="AGENT",
                 message_text=ai_response,
-                message_image=None,
                 was_sent=datetime.utcnow()
             )
             db.add(agent_message_db)

@@ -1,23 +1,1016 @@
 <!DOCTYPE html>
-<html>
+<html lang="uk">
 <head>
-    <title>MultiAgent DP</title>
-    <link rel="stylesheet" href="/static/css/main.css">
-    <link rel="icon" type="image/x-icon" href="/static/assets/icons/favicon.ico">
-    <link rel="icon" type="image/png" sizes="16x16" href="/static/assets/icons/favicon-16x16.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="/static/assets/icons/favicon-32x32.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="/static/assets/icons/apple-touch-icon.png">
-    <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MultiAgent DP</title>
+  <link rel="icon" href="/static/assets/icons/favicon.ico">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background: #dce5fc;
+      color: #1F2937;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      overflow: hidden;
+      margin: 0;
+    }
+
+    header {
+      background: #ffffff;
+      color: #1F2937;
+      padding: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: fixed;
+      width: 100%;
+      top: 0;
+      z-index: 10;
+      border: 1px solid black;
+    }
+
+    header a {
+      font-size: 2.25rem;
+      font-weight: 700;
+    }
+
+    header a:hover {
+      color: #ffffff;
+    }
+
+    header div {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    header div span {
+      font-size: 1.125rem;
+    }
+
+    header div button {
+      width: 2.5rem;
+      height: 2.5rem;
+      background-color: #ffffff;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border: none;
+    }
+
+    header div button img {
+      width: 2.25rem;
+      height: 2.25rem;
+    }
+
+    aside {
+      height: calc(100vh - 80px);
+      overflow-y: auto;
+      padding: 20px;
+      background: #f3f3f3;
+      width: 25%;
+    }
+
+    .right-sidebar {
+      border: 1px solid black;
+      height: calc(100vh - 80px);
+      overflow-y: auto;
+      padding: 20px;
+      background: #f5f5f5;
+      width: 25%;
+      position: fixed;
+      top: 82px;
+      right: 0;
+      transform: translateX(100%);
+      transition: transform 0.3s ease-in-out;
+      z-index: 20;
+    }
+
+    .right-sidebar.active {
+      transform: translateX(0);
+    }
+
+    main {
+      height: calc(100vh - 80px);
+      overflow-y: auto;
+      padding: 20px;
+      width: 75%;
+      transition: width 0.3s ease-in-out;
+      position: relative;
+      border: 1px solid black;
+    }
+
+    main.sidebar-active {
+      width: 50%;
+    }
+
+    .flex-container {
+      display: flex;
+      margin-top: 80px;
+      height: calc(100vh - 80px);
+    }
+
+    .agent-button {
+      background-color: #505050;
+      padding: 0.5rem;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      color: #ffffff;
+    }
+
+    .agent-button:hover {
+      background-color: #737373;
+    }
+
+    .agent-button.active {
+      background-color: #8c8c8c;
+    }
+
+    .main-logo {
+      width: 250px;
+      height: 50px;
+      object-fit: contain;
+    }
+
+    .chat-input-container {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    #chatInput {
+      flex: 1;
+      padding: 0.75rem;
+      background-color: #ffffff;
+      color: #000000;
+      border: 2px solid #7188e0;
+      border-radius: 0.5rem;
+      outline: none;
+    }
+
+    #chatInput:focus {
+      box-shadow: 0 0 0 2px #3655d2;
+    }
+
+    #sendButton, #clearChatButton {
+      background: #4f4f4f;
+      color: #FFFFFF;
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      transition: all 0.3s ease;
+      border: none;
+      cursor: pointer;
+    }
+
+    #sendButton:hover, #clearChatButton:hover {
+      background: #2b2e33;
+    }
+
+    #clearChatButton {
+      background: #DC2626;
+    }
+
+    #clearChatButton:hover {
+      background: #B91C1C;
+    }
+
+    #chatBox {
+      flex: 1;
+      background-color: #F9FAFB;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+      overflow-y: auto;
+      margin-bottom: 1rem;
+      position: relative;
+      scroll-behavior: smooth;
+    }
+
+    #chatBox::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    #chatBox::-webkit-scrollbar-thumb {
+      background: #9CA3AF;
+      border-radius: 4px;
+    }
+
+    .animate-fade-in {
+      animation: fadeIn 0.5s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    #agentsLoadingStatus {
+      color: #6B7280;
+      text-align: center;
+      padding: 1rem;
+    }
+
+    #agentsList {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    #currentAgentStatus {
+      margin-top: 1rem;
+      padding: 0.75rem;
+      background-color: #E5E7EB;
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+    }
+
+    #chatMessages {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    #chatPlaceholder {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #9CA3AF;
+      font-size: 1.125rem;
+      text-align: center;
+    }
+
+    .message {
+      margin-bottom: 0.75rem;
+      padding: 0.75rem;
+      border-radius: 0.375rem;
+    }
+
+    .message.user {
+      background-color: #DBEAFE;
+      margin-left: 2rem;
+      border-left: 4px solid #3B82F6;
+    }
+
+    .message.agent {
+      background-color: #F3F4F6;
+      margin-right: 2rem;
+      border-left: 4px solid #9CA3AF;
+    }
+
+    .message.system {
+      background-color: #FEF3C7;
+      border-left: 4px solid #FBBF24;
+    }
+
+    .message .sender {
+      font-weight: 600;
+      font-size: 0.875rem;
+    }
+
+    .message.user .sender {
+      color: #1E40AF;
+    }
+
+    .message.agent .sender {
+      color: #4B5563;
+    }
+
+    .message.system .sender {
+      color: #B45309;
+    }
+
+    .message .timestamp {
+      font-size: 0.75rem;
+      color: #6B7280;
+    }
+
+    .message .content {
+      color: #1F2937;
+      line-height: 1.5;
+    }
+
+    .typing-indicator {
+      margin-bottom: 0.75rem;
+      padding: 0.75rem;
+      background-color: #F3F4F6;
+      margin-right: 2rem;
+      border-left: 4px solid #D1D5DB;
+    }
+
+    .typing-indicator .dots {
+      display: flex;
+      gap: 0.25rem;
+    }
+
+    .typing-indicator .dot {
+      width: 0.5rem;
+      height: 0.5rem;
+      background-color: #9CA3AF;
+      border-radius: 9999px;
+      animation: bounce 0.6s infinite alternate;
+    }
+
+    .typing-indicator .dot:nth-child(2) {
+      animation-delay: 0.1s;
+    }
+
+    .typing-indicator .dot:nth-child(3) {
+      animation-delay: 0.2s;
+    }
+
+    @keyframes bounce {
+      to { transform: translateY(-4px); }
+    }
+
+    .footer {
+      width: 25%;
+      padding: 1rem;
+      background-color: #eeeeee;
+      color: #1F2937;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      border: 1px solid black;
+      display: flex;
+      justify-content: center;
+    }
+
+    .footer .social-links {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: space-between;
+      align-items: center;
+      width: 50%;
+    }
+
+    .footer .social-links a:hover {
+      color: #ffffff;
+    }
+
+    .footer .social-links img {
+      width: 1.5rem;
+      height: 1.5rem;
+    }
+
+    .code-block {
+      background-color: #2D2D2D;
+      color: #F5F5F5;
+      padding: 0.5rem;
+      border: 1px solid #5eb044;
+      border-radius: 0.375rem;
+      font-family: 'Courier New', Courier, monospace;
+    }
+
+    .code-block-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #3B3B3B;
+      padding: 0.25rem 0.5rem;
+      border-bottom: 1px solid #55d23c;
+      border-radius: 0.375rem 0.375rem 0 0;
+    }
+
+    .code-block-header .language {
+      font-weight: 600;
+      color: #F5F5F5;
+    }
+
+    .code-block-header .button-group {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .code-block.collapsible .code-content {
+      display: block;
+      transition: all 0.3s ease;
+    }
+
+    .code-block.collapsed .code-content {
+      display: none;
+    }
+
+    .copy-button {
+      background-color: #505050;
+      color: #FFFFFF;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      cursor: pointer;
+      font-size: 0.75rem;
+      border: none;
+    }
+
+    .copy-button:hover {
+      background-color: #737373;
+    }
+
+    .toggle-view-button {
+      background-color: #505050;
+      color: #FFFFFF;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      cursor: pointer;
+      font-size: 0.75rem;
+      border: none;
+    }
+
+    .toggle-view-button:hover {
+      background-color: #737373;
+    }
+
+    .toggle-collapse-button {
+      background-color: #505050;
+      color: #FFFFFF;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      cursor: pointer;
+      font-size: 0.75rem;
+      border: none;
+    }
+
+    .toggle-collapse-button:hover {
+      background-color: #737373;
+    }
+
+    .html-preview {
+      border: 1px solid #3749b4;
+      background-color: #ffffff;
+      padding: 0;
+      border-radius: 0.375rem;
+      margin-top: 0.25rem;
+      width: 100%;
+      height: 200px;
+      display: none;
+    }
+
+    .html-preview iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      border-radius: 0.375rem;
+    }
+
+    .inline-code {
+      background-color: #84a2d2;
+      color: #FFFFFF;
+      padding: 0.1rem 0.3rem;
+      border-radius: 0.25rem;
+      font-family: 'Courier New', Courier, monospace;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+    }
+
+    .modal-content {
+      background-color: #ffffff;
+      margin: 15% auto;
+      padding: 20px;
+      border: 1px solid #888;
+      width: 80%;
+      max-width: 500px;
+      border-radius: 0.5rem;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+
+    .modal-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .modal-button {
+      padding: 0.5rem 1rem;
+      border-radius: 0.25rem;
+      cursor: pointer;
+      border: none;
+    }
+
+    .modal-button.confirm {
+      background-color: #DC2626;
+      color: #FFFFFF;
+    }
+
+    .modal-button.confirm:hover {
+      background-color: #B91C1C;
+    }
+
+    .modal-button.cancel {
+      background-color: #6B7280;
+      color: #FFFFFF;
+    }
+
+    .modal-button.cancel:hover {
+      background-color: #4B5563;
+    }
+  </style>
 </head>
-<body class="min-h-screen bg-gray-100">
-
-    {% include "partials/header.html" %}
-
-    <div class="flex mt-20 h-[calc(100vh-80px)]">
-        {% include "partials/sidebar.html" %}
-        {% include "partials/chat.html" %}
+<body>
+  <header>
+    <a href="/">
+      <img src="/static/assets/images/Main-Logo.png" alt="GitHub" class="main-logo">
+    </a>
+    <div>
+      <button id="toggleSidebar">
+        <img src="/static/assets/icons/right-sidebar.png" alt="Profile">
+      </button>
     </div>
+  </header>
 
-    <script src="/static/js/api.js"></script>
+  <div class="flex-container">
+    <aside>
+      <h2 class="text-xl font-semibold mb-4 text-center">Список агентів</h2>
+      <div id="agentsLoadingStatus">Завантаження агентів...</div>
+      <ul id="agentsList"></ul>
+      <div id="currentAgentStatus">
+        <span id="selectedAgentText">Оберіть агента для початку чату</span>
+      </div>
+    </aside>
+
+    <main class="flex flex-col">
+      <div id="chatBox">
+        <div id="chatMessages" class="animate-fade-in"></div>
+        <div id="chatPlaceholder">
+          👋 Оберіть агента, щоб розпочати спілкування.
+        </div>
+      </div>
+      <div class="chat-input-container">
+        <input type="text" id="chatInput" placeholder="Введіть повідомлення...">
+        <button id="sendButton">
+          <img src="/static/assets/icons/send-logo.png" alt="Send Icon" style="width: 25px; height: 25px; vertical-align: middle; margin-right: 5px;">
+        </button>
+        <button id="clearChatButton" title="Очистити історію чату">
+          <img src="/static/assets/icons/trash-icon.png" alt="Clear Chat" style="width: 25px; height: 25px; vertical-align: middle;">
+        </button>
+      </div>
+    </main>
+
+    <aside class="right-sidebar" id="rightSidebar">
+      <h2 class="text-xl font-semibold mb-4 text-center">Profile</h2>
+      <span>Will be implemented soon...</span>
+    </aside>
+  </div>
+
+  <div id="clearChatModal" class="modal">
+    <div class="modal-content">
+      <h2 class="text-lg font-semibold mb-4">Підтвердження очищення чату</h2>
+      <p>Ви впевнені, що хочете очистити історію чату з цим агентом? Цю дію неможливо скасувати.</p>
+      <div class="modal-buttons">
+        <button class="modal-button cancel" onclick="closeClearChatModal()">Скасувати</button>
+        <button class="modal-button confirm" onclick="confirmClearChat()">Очистити</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="social-links">
+      <a href="https://github.com/MiskoRuslan" target="_blank">
+        <img src="/static/assets/icons/github-logo.png" alt="GitHub">
+      </a>
+      <a href="https://t.me/ruslanmisko" target="_blank">
+        <img src="/static/assets/icons/telegram-logo.png" alt="Telegram">
+      </a>
+      <a href="mailto:miskoruslan6@gmail.com">
+        <img src="/static/assets/icons/gmail-logo.png" alt="Gmail">
+      </a>
+      <a href="https://www.linkedin.com/in/ruslan-misko/" target="_blank">
+        <img src="/static/assets/icons/LinkedIn-Logo.png" alt="LinkedIn">
+      </a>
+    </div>
+  </div>
+
+  <script>
+    let currentAgent = null;
+    let currentUserId = 'dbf62431-144b-48f3-9a46-25edb1da85ae';
+
+    function loadTestAgents() {
+      const agentsList = document.getElementById('agentsList');
+      const loadingStatus = document.getElementById('agentsLoadingStatus');
+      loadingStatus.style.display = 'none';
+      const testAgents = [
+        { id: 'test_1', name: 'Тестовий Агент 1' },
+        { id: 'test_2', name: 'Тестовий Агент 2' },
+        { id: 'generic', name: 'GenericAgent' }
+      ];
+      agentsList.innerHTML = '';
+      testAgents.forEach(agent => {
+        const listItem = document.createElement('li');
+        listItem.className = 'agent-button';
+        listItem.textContent = agent.name;
+        listItem.onclick = () => loadAgent(agent.id, agent.name);
+        agentsList.appendChild(listItem);
+      });
+    }
+
+    async function loadAgents() {
+      const agentsList = document.getElementById('agentsList');
+      const loadingStatus = document.getElementById('agentsLoadingStatus');
+      try {
+        const response = await fetch('/api/v1/all_agents');
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+        }
+        const agents = await response.json();
+        loadingStatus.style.display = 'none';
+        agentsList.innerHTML = '';
+        if (!agents || agents.length === 0) {
+          agentsList.innerHTML = '<li class="p-2 text-gray-500">Немає доступних агентів</li>';
+          return;
+        }
+        agents.forEach(agent => {
+          const listItem = document.createElement('li');
+          listItem.className = 'agent-button';
+          listItem.textContent = agent.name || agent.id || 'Невідомий агент';
+          listItem.onclick = () => loadAgent(agent.id, agent.name || agent.id);
+          agentsList.appendChild(listItem);
+        });
+      } catch (error) {
+        loadingStatus.style.display = 'none';
+        let errorMessage = 'Помилка завантаження агентів';
+        if (error.message.includes('Failed to fetch')) {
+          errorMessage = 'Неможливо підключитися до сервера. Перевірте чи запущений backend.';
+        } else if (error.message.includes('404')) {
+          errorMessage = 'Ендпоінт /api/v1/all_agents не знайдено';
+        } else if (error.message.includes('500')) {
+          errorMessage = 'Внутрішня помилка сервера';
+        }
+        agentsList.innerHTML = `
+          <li class="p-2 text-red-500 text-sm">
+            ${errorMessage}
+            <br><small>Деталі: ${error.message}</small>
+          </li>
+          <li class="p-2 mt-2">
+            <button onclick="loadAgents()" class="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">
+              Спробувати знову
+            </button>
+          </li>
+          <li class="p-2 mt-2">
+            <button onclick="loadTestAgents()" class="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600">
+              Завантажити тестові дані
+            </button>
+          </li>
+        `;
+      }
+    }
+
+    async function loadAgent(agentId, agentName) {
+      currentAgent = { id: agentId, name: agentName };
+      const chatPlaceholder = document.getElementById('chatPlaceholder');
+      if (chatPlaceholder) chatPlaceholder.style.display = 'none';
+      const agentItems = document.querySelectorAll('#agentsList li');
+      agentItems.forEach(item => {
+        item.classList.remove('active');
+        if (item.textContent === agentName) item.classList.add('active');
+      });
+      const selectedAgentText = document.getElementById('selectedAgentText');
+      selectedAgentText.textContent = `Активний чат з: ${agentName}`;
+      await loadChatHistory();
+    }
+
+    async function loadChatHistory() {
+      if (!currentAgent) return;
+      try {
+        const response = await fetch(`/api/v1/get_chat?user_id=${currentUserId}&agent_id=${currentAgent.id}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+        }
+        const chatHistory = await response.json();
+        const chatMessages = document.getElementById('chatMessages');
+        if (!chatMessages) return;
+        chatMessages.innerHTML = '';
+        chatHistory.forEach(message => displayMessage(message));
+        scrollChatToBottom();
+      } catch (error) {
+        const chatMessages = document.getElementById('chatMessages');
+        if (chatMessages) {
+          chatMessages.innerHTML = `<div class="text-red-500">Помилка завантаження історії чату: ${error.message}</div>`;
+        }
+      }
+    }
+
+    function displayMessage(message) {
+      const chatMessages = document.getElementById('chatMessages');
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'message';
+      let sender = '';
+      let isFromUser = false;
+      let isFromAgent = false;
+      if (message.sender === 'USER') {
+        isFromUser = true;
+        sender = 'Ви';
+        messageDiv.classList.add('user');
+      } else if (message.sender === 'AGENT') {
+        isFromAgent = true;
+        sender = currentAgent ? currentAgent.name : 'Агент';
+        messageDiv.classList.add('agent');
+      } else if (message.user_id === currentUserId) {
+        isFromUser = true;
+        sender = 'Ви';
+        messageDiv.classList.add('user');
+      } else if (message.user_id === 'agent_response') {
+        isFromAgent = true;
+        sender = currentAgent ? currentAgent.name : 'Агент';
+        messageDiv.classList.add('agent');
+      } else {
+        messageDiv.classList.add('system');
+        sender = 'System';
+      }
+      let content = '';
+      if (message.message_text) {
+        content = message.message_text;
+      } else if (message.text) {
+        content = message.text;
+      } else if (message.message_type === 'IMAGE' && (message.message_image || message.image)) {
+        const imageData = message.message_image || message.image;
+        content = `<img src="data:image/jpeg;base64,${imageData}" alt="Зображення" class="max-w-xs rounded shadow-md">`;
+      } else if (message.ai_response) {
+        content = message.ai_response;
+      } else {
+        content = '<em class="text-gray-500">Порожнє повідомлення</em>';
+      }
+      const codeBlockRegex = /```(\w+)?\n([\s\S]*?)\n```/g;
+      content = content.replace(codeBlockRegex, (match, lang, code) => {
+        const uniqueId = `code-${Math.random().toString(36).substr(2, 9)}`;
+        let codeBlock = `
+          <div class="code-block collapsible" id="code-block-${uniqueId}">
+            <div class="code-block-header">
+              <span class="language">${lang || 'code'}</span>
+              <div class="button-group">
+                <button class="copy-button" onclick="copyCode('${uniqueId}')">Копіювати</button>
+                ${lang === 'html' ? `<button class="toggle-view-button" onclick="toggleHtmlView('${uniqueId}')">Переглянути HTML</button>` : ''}
+                <button class="toggle-collapse-button" onclick="toggleCodeCollapse('${uniqueId}')">Згорнути</button>
+              </div>
+            </div>
+            <div class="code-content">
+              <pre><code id="${uniqueId}">${escapeHtml(code.trim())}</code></pre>
+              ${lang === 'html' ? `<div class="html-preview" id="preview-${uniqueId}"><iframe id="iframe-${uniqueId}"></iframe></div>` : ''}
+            </div>
+          </div>
+        `;
+        if (lang === 'html') {
+          setTimeout(() => {
+            const iframe = document.getElementById(`iframe-${uniqueId}`);
+            if (iframe) {
+              const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+              iframeDoc.open();
+              iframeDoc.write(code.trim());
+              iframeDoc.close();
+            }
+          }, 0);
+        }
+        return codeBlock;
+      });
+      content = content.replace(/(^|[^`])`([^`]+)`([^`]|$)/g, '$1<span class="inline-code">$2</span>$3');
+      let timestamp = '';
+      if (message.was_sent) {
+        timestamp = new Date(message.was_sent).toLocaleString('uk-UA', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      }
+      messageDiv.innerHTML = `
+        <div class="flex justify-between items-center mb-2">
+          <div class="sender">${sender}</div>
+          <div class="timestamp">${timestamp}</div>
+        </div>
+        <div class="content">${content}</div>
+      `;
+      chatMessages.appendChild(messageDiv);
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById('chatInput');
+      const message = input.value.trim();
+      if (!message) return;
+      if (!currentAgent) {
+        alert('Спочатку оберіть агента зі списку');
+        return;
+      }
+      const chatMessage = {
+        message_type: 'TEXT',
+        text: message,
+        image: null,
+        was_sent: new Date().toISOString(),
+        agent_id: currentAgent.id,
+        user_id: currentUserId
+      };
+      const userMessage = { ...chatMessage, sender: 'USER' };
+      displayMessage(userMessage);
+      input.value = '';
+      scrollChatToBottom();
+      const typingDiv = document.createElement('div');
+      typingDiv.className = 'typing-indicator';
+      typingDiv.id = 'typing-indicator';
+      typingDiv.innerHTML = `
+        <div class="flex items-center space-x-2">
+          <div class="sender">${currentAgent.name}</div>
+          <div class="dots">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+          </div>
+        </div>
+        <div class="text-gray-500 text-sm mt-1">Набирає відповідь...</div>
+      `;
+      document.getElementById('chatMessages').appendChild(typingDiv);
+      scrollChatToBottom();
+      try {
+        const response = await fetch('/api/v1/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(chatMessage)
+        });
+        const typingIndicator = document.getElementById('typing-indicator');
+        if (typingIndicator) typingIndicator.remove();
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const responseData = await response.json();
+        if (responseData && responseData.ai_response) {
+          const agentResponse = {
+            message_type: 'TEXT',
+            text: responseData.ai_response,
+            was_sent: new Date().toISOString(),
+            agent_id: currentAgent.id,
+            user_id: 'agent_response',
+            sender: 'AGENT'
+          };
+          displayMessage(agentResponse);
+        }
+        scrollChatToBottom();
+      } catch (error) {
+        const typingIndicator = document.getElementById('typing-indicator');
+        if (typingIndicator) typingIndicator.remove();
+        const errorMessage = {
+          message_type: 'TEXT',
+          text: `❌ Помилка відправки повідомлення: ${error.message}`,
+          was_sent: new Date().toISOString(),
+          agent_id: 'system',
+          user_id: 'system',
+          sender: 'SYSTEM'
+        };
+        displayMessage(errorMessage);
+        scrollChatToBottom();
+      }
+    }
+
+    function scrollChatToBottom() {
+      const chatBox = document.getElementById('chatBox');
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function toggleCodeCollapse(codeId) {
+      const codeBlock = document.getElementById(`code-block-${codeId}`);
+      const button = codeBlock.querySelector('.toggle-collapse-button');
+      if (codeBlock.classList.contains('collapsed')) {
+        codeBlock.classList.remove('collapsed');
+        button.textContent = 'Згорнути';
+      } else {
+        codeBlock.classList.add('collapsed');
+        button.textContent = 'Розгорнути';
+      }
+    }
+
+    function openClearChatModal() {
+      if (!currentAgent) {
+        alert('Спочатку оберіть агента зі списку');
+        return;
+      }
+      const modal = document.getElementById('clearChatModal');
+      modal.style.display = 'block';
+    }
+
+    function closeClearChatModal() {
+      const modal = document.getElementById('clearChatModal');
+      modal.style.display = 'none';
+    }
+
+    async function confirmClearChat() {
+      if (!currentAgent) return;
+      closeClearChatModal();
+      const chatMessages = document.getElementById('chatMessages');
+      try {
+        const response = await fetch('/api/v1/clear_chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: currentUserId,
+            agent_id: currentAgent.id
+          })
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+        }
+        chatMessages.innerHTML = '';
+        const chatPlaceholder = document.getElementById('chatPlaceholder');
+        if (chatPlaceholder) chatPlaceholder.style.display = 'block';
+        const systemMessage = {
+          message_type: 'TEXT',
+          text: 'Історію чату успішно очищено',
+          was_sent: new Date().toISOString(),
+          agent_id: 'system',
+          user_id: 'system',
+          sender: 'SYSTEM'
+        };
+        displayMessage(systemMessage);
+        scrollChatToBottom();
+      } catch (error) {
+        const errorMessage = {
+          message_type: 'TEXT',
+          text: `❌ Помилка очищення історії чату: ${error.message}`,
+          was_sent: new Date().toISOString(),
+          agent_id: 'system',
+          user_id: 'system',
+          sender: 'SYSTEM'
+        };
+        displayMessage(errorMessage);
+        scrollChatToBottom();
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadAgents();
+      const chatInput = document.getElementById('chatInput');
+      if (chatInput) {
+        chatInput.addEventListener('keypress', function (e) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            sendMessage();
+          }
+        });
+        chatInput.focus();
+      }
+      const sendButton = document.getElementById('sendButton');
+      if (sendButton) sendButton.addEventListener('click', sendMessage);
+      const clearChatButton = document.getElementById('clearChatButton');
+      if (clearChatButton) clearChatButton.addEventListener('click', openClearChatModal);
+      const toggleSidebarButton = document.getElementById('toggleSidebar');
+      const rightSidebar = document.getElementById('rightSidebar');
+      const main = document.querySelector('main');
+      if (toggleSidebarButton && rightSidebar && main) {
+        toggleSidebarButton.addEventListener('click', () => {
+          rightSidebar.classList.toggle('active');
+          main.classList.toggle('sidebar-active');
+        });
+      }
+    });
+
+    function copyCode(codeId) {
+      const codeElement = document.getElementById(codeId);
+      const text = codeElement.textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        const button = codeElement.parentElement.previousElementSibling.querySelector('.copy-button');
+        const originalText = button.textContent;
+        button.textContent = 'Скопійовано!';
+        setTimeout(() => {
+          button.textContent = originalText;
+        }, 1000);
+      }).catch(err => {});
+    }
+
+    function toggleHtmlView(codeId) {
+      const preview = document.getElementById(`preview-${codeId}`);
+      const codeBlock = document.getElementById(codeId).parentElement;
+      const button = codeBlock.parentElement.querySelector('.toggle-view-button');
+      if (preview.style.display === 'none') {
+        preview.style.display = 'block';
+        codeBlock.style.display = 'none';
+        button.textContent = 'Переглянути код';
+      } else {
+        preview.style.display = 'none';
+        codeBlock.style.display = 'block';
+        button.textContent = 'Переглянути HTML';
+      }
+    }
+
+    function escapeHtml(unsafe) {
+      return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+  </script>
 </body>
 </html>

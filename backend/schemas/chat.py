@@ -30,9 +30,14 @@ class ChatMessageResponse(BaseModel):
     sender: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class ChatQuery(BaseModel):
     user_id: UUID
     agent_id: UUID
+
+
+class ClearChatRequest(BaseModel):
+    user_id: str
+    agent_id: str

@@ -52,6 +52,18 @@ class ChatManager:
             ChatHistory.agent_id == agent_id
         ).order_by(ChatHistory.was_sent).all()
 
+    def clear_chat_history(self, user_id: str, agent_id: str) -> bool:
+        try:
+            self.db.query(ChatHistory).filter(
+                ChatHistory.user_id == user_id,
+                ChatHistory.agent_id == agent_id
+            ).delete()
+            self.db.commit()
+            return True
+        except Exception as e:
+            self.db.rollback()
+            return False
+
 
 def get_chat_manager() -> ChatManager:
     db = SessionLocal()

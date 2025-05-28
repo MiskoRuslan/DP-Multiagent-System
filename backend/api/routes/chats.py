@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends
 from typing import List
 from backend.core.managers.chat_manager import ChatManager, get_chat_manager
-from backend.schemas.chat import ChatMessageCreate, ChatMessageResponse
+from backend.schemas.chat import ChatMessageCreate, ChatMessageResponse, \
+    ClearChatRequest
 
 router = APIRouter()
 
@@ -26,3 +27,15 @@ async def get_chat(
         agent_id=agent_id
     )
     return chat
+
+
+@router.post("/clear_chat")
+async def clear_chat(
+    request: ClearChatRequest,
+    chat_manager: ChatManager = Depends(get_chat_manager),
+):
+    result = chat_manager.clear_chat_history(
+        user_id=request.user_id,
+        agent_id=request.agent_id
+    )
+    return result
