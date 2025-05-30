@@ -41,3 +41,32 @@ class ChatQuery(BaseModel):
 class ClearChatRequest(BaseModel):
     user_id: str
     agent_id: str
+
+
+class MessageType(str, Enum):
+    TEXT = "TEXT"
+    IMAGE = "IMAGE"
+
+
+class ChatMessage(BaseModel):
+    message_type: MessageType
+    text: Optional[str] = None
+    image: Optional[str] = None
+    was_sent: datetime
+    agent_id: str
+    user_id: str
+
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat(),
+        }
+
+
+class MessageResponse(BaseModel):
+    message_type: str
+    text: Optional[str] = None
+    image: Optional[str] = None
+    was_sent: str
+    agent_id: str
+    user_id: str
+    ai_response: Optional[str] = None

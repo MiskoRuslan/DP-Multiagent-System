@@ -1,9 +1,10 @@
 crewai==0.120.1
-fastapi==0.115.0
-pydantic==2.9.2
+fastapi~=0.115.9
+pydantic~=2.11.4
 uvicorn==0.30.6
 psycopg2-binary==2.9.9
-alembic==1.13.2
-sqlalchemy==2.0.23
+alembic~=1.16.1
+sqlalchemy~=2.0.35
 crewai==0.120.1
 langchain-openai==0.3.18
+requests~=2.32.3

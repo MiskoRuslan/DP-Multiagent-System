@@ -1,58 +1,19 @@
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
-from typing import Optional
 from datetime import datetime, timedelta
-from enum import Enum
 import base64
 from crewai import Agent, Task, Crew, Process
 from langchain_openai import ChatOpenAI
 import asyncio
 from sqlalchemy.orm import Session
 
-from backend.config.database import SessionLocal
+from backend.clients.weather_client import WeatherClient
 from backend.core.managers.chat_manager import ChatManager, get_chat_manager
 from backend.models.chat_history import ChatHistory, MessageType as DBMessageType
+from backend.schemas.chat import MessageResponse, ChatMessage, MessageType
+from backend.utils.helpers import get_db
 
 router = APIRouter()
-
 llm = ChatOpenAI(model="gpt-4o", temperature=0.7)
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-class MessageType(str, Enum):
-    TEXT = "TEXT"
-    IMAGE = "IMAGE"
-
-
-class ChatMessage(BaseModel):
-    message_type: MessageType
-    text: Optional[str] = None
-    image: Optional[str] = None
-    was_sent: datetime
-    agent_id: str
-    user_id: str
-
-    class Config:
-        json_encoders = {
-            datetime: lambda v: v.isoformat(),
-        }
-
-
-class ChatMessageResponse(BaseModel):
-    message_type: str
-    text: Optional[str] = None
-    image: Optional[str] = None
-    was_sent: str
-    agent_id: str
-    user_id: str
-    ai_response: Optional[str] = None
 
 
 def create_chat_agent():
@@ -110,12 +71,22 @@ async def process_with_crewai(message: str, user_id: str, agent_id: str) -> str:
         return f"Вибачте, сталася помилка при обробці вашого повідомлення: {str(e)}"
 
 
-@router.post("/send", response_model=ChatMessageResponse)
+@router.post("/send", response_model=MessageResponse)
 async def base_send(
         chat_message: ChatMessage,
         db: Session = Depends(get_db),
         chat_manager: ChatManager = Depends(get_chat_manager),
 ):
+
+    weather_client = WeatherClient()
+    city = "London"
+    print(f"Current weather in {city}")
+    print(weather_client.get_current_weather(city))
+    print(f"\n\nForecast weather in {city}")
+    print(weather_client.get_forecast(city=city, days=7))
+    print(f"\n\nAstronomy in {city}")
+    print(weather_client.get_astronomy(city))
+
     print("Received message:")
     print(f"Message Type: {chat_message.message_type}")
     print(f"Text: {chat_message.text}")
@@ -219,7 +190,7 @@ async def base_send(
             print(f"Помилка збереження відповіді про зображення: {str(e)}")
             db.rollback()
 
-    response = ChatMessageResponse(
+    response = MessageResponse(
         message_type=str(chat_message.message_type),
         text=str(chat_message.text) if chat_message.text is not None else None,
         image=str(chat_message.image) if chat_message.image is not None else None,
