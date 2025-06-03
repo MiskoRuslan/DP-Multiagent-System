@@ -747,9 +747,43 @@
       } else {
         content = '<em class="text-gray-500">Порожнє повідомлення</em>';
       }
+
       const codeBlockRegex = /```(\w+)?\n([\s\S]*?)\n```/g;
       content = content.replace(codeBlockRegex, (match, lang, code) => {
         const uniqueId = `code-${Math.random().toString(36).substr(2, 9)}`;
+
+        // Якщо це html-render, відображаємо одразу як візуалізацію
+        if (lang === 'html-render') {
+          let htmlBlock = `
+            <div class="code-block" id="code-block-${uniqueId}">
+              <div class="code-block-header">
+                <span class="language">HTML Візуалізація</span>
+                <div class="button-group">
+                  <button class="copy-button" onclick="copyCode('${uniqueId}')">Копіювати код</button>
+                  <button class="toggle-view-button" onclick="toggleHtmlView('${uniqueId}')">Переглянути код</button>
+                </div>
+              </div>
+              <div class="html-preview" id="preview-${uniqueId}" style="display: block;"><iframe id="iframe-${uniqueId}"></iframe></div>
+              <div class="code-content" style="display: none;">
+                <pre><code id="${uniqueId}">${escapeHtml(code.trim())}</code></pre>
+              </div>
+            </div>
+          `;
+
+          setTimeout(() => {
+            const iframe = document.getElementById(`iframe-${uniqueId}`);
+            if (iframe) {
+              const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+              iframeDoc.open();
+              iframeDoc.write(code.trim());
+              iframeDoc.close();
+            }
+          }, 0);
+
+          return htmlBlock;
+        }
+
+        // Для всіх інших мов - стара логіка
         let codeBlock = `
           <div class="code-block collapsible" id="code-block-${uniqueId}">
             <div class="code-block-header">
@@ -766,6 +800,7 @@
             </div>
           </div>
         `;
+
         if (lang === 'html') {
           setTimeout(() => {
             const iframe = document.getElementById(`iframe-${uniqueId}`);
@@ -779,6 +814,7 @@
         }
         return codeBlock;
       });
+
       content = content.replace(/(^|[^`])`([^`]+)`([^`]|$)/g, '$1<span class="inline-code">$2</span>$3');
       let timestamp = '';
       if (message.was_sent) {

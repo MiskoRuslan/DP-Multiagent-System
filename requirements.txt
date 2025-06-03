@@ -8,3 +8,6 @@ sqlalchemy~=2.0.35
 crewai==0.120.1
 langchain-openai==0.3.18
 requests~=2.32.3
+
+
+

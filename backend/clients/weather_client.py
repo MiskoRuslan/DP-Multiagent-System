@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 class WeatherClient:
     def __init__(self, api_key=None, base_url="http://api.weatherapi.com/v1"):
-        self.api_key = api_key or os.getenv("WEATHER_API_KEY", "df1f1f02e8c14a8d9e4214813231012")
+        self.api_key = api_key or os.getenv("WEATHER_API_KEY")
         self.base_url = base_url.rstrip("/")
         self.session = requests.Session()
 
