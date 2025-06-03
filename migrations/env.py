@@ -21,6 +21,7 @@ if config.config_file_name is not None:
 try:
     from backend.models import Base
     target_metadata = Base.metadata
+    from backend.models import agents, user, chat_history
 except ImportError:
     try:
         from backend.database import Base
